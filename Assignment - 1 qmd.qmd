@@ -1,0 +1,548 @@
+---
+title: "Assignment 1 solutions "
+author: " Hashem Mewafy"
+format:
+  beamer:
+    theme: metropolis       # modern Beamer look
+    slide-number: true
+    aspectratio: 169        # 16 × 9
+    incremental: true
+    pdf-engine: xelatex           
+    monofont: "Consolas"   # any installed mono font
+    monofontoptions:
+      - Scale=0.55               # ≈ scriptsize; use 0.55–0.65 to taste
+
+      
+    include-in-header:
+      text: |
+        % Tighten code blocks
+        \usepackage{setspace}
+        \AtBeginEnvironment{Highlighting}{\scriptsize\setstretch{0.90}}
+        % 0.90 ≈ single-spaced-minus-10 %; tweak 0.80–1.0 to taste
+
+execute:
+  echo: true                # show code
+  warning: false
+  message: false
+code-overflow: wrap         # long lines wrap instead of shrinking
+code-line-numbers: true     # optional line numbers
+header-includes:
+  - \metroset{block=fill}   # ← makes all blocks filled in gray
+---
+
+
+
+
+- Use this YAML to hide code globally:
+
+    ```yaml
+    # ----- in the document YAML -----
+    execute:
+      echo:    false   # hide code globally
+      warning: false   # hide warnings globally
+    ```
+
+
+## 1 - Calculate the mean, median, and standard deviation
+```{r}
+#read data 
+d <- read.csv("autism-adult.csv")
+
+class(d$age)
+# convert age to numeric 
+d$age <- as.numeric(d$age)
+mean_age <- mean(d$age,   na.rm = TRUE)
+median_age <- median(d$age, na.rm = TRUE)
+sd_age   <- sd(d$age , na.rm = TRUE)
+
+# c(): concatenates results into a named vector for clear printing.
+c(mean   = mean_age,
+  median = median_age,
+  sd     = sd_age)
+```
+
+
+##  2 - Quartile and Percentile Code
+```{r}
+# na.rm = TRUE discards any missing values before calculation.
+quart_age <- quantile(d$age,
+                      probs = c(0.25, 0.50, 0.75),
+                      na.rm = TRUE)
+# Store the individual quartile statistics in clearly named variables for easy reference.
+Q1_age <- quart_age[1]   # first quartile (25th percentile)
+Q2_age <- quart_age[2]   # second quartile (median / 50th percentile)
+Q3_age <- quart_age[3]   # third quartile (75th percentile)
+
+# c(): concatenates results into a named vector for clear printing.
+# Q1_exp, Q2_exp, Q3_exp: quartile statistics calculated above.
+c(Q1 = Q1_age,
+  Q2 = Q2_age,
+  Q3 = Q3_age)
+
+age_max <-  max(d$age , na.rm = TRUE)
+age_max 
+
+```
+## 3 - Box and Median {.smaller}
+```{r}
+boxplot(d$age,
+        main = "Distribution of age",ylab = "age",col = "green",notch = FALSE,
+        na.rm = TRUE)
+```
+## 4-  Min and Normalization
+
+## Min and Normalization Code
+
+```{r}
+
+
+# min() and max(): find the observed minimum and maximum; na.rm = TRUE skips missing values.
+min_age <- min(d$age, na.rm = TRUE) 
+min_age
+max_age <- max(d$age, na.rm = TRUE)   
+max_age
+# Implement min-max rescaling to the [0, 1] interval with the classic formula:
+# (x − min) / (max − min).  Replace the original column with the rescaled values.
+d$age <- (d$age - min_age) / (max_age - min_age)
+
+
+# Provide the rescaled years_experience for the seventh observation (row 7).
+d$age[7]
+```
+
+## 5-  Country and Mode
+
+Determine the mode of the \emph{country\_of\_res} feature.
+
+## Country and Mode Code
+
+```{r}
+#| results: hide
+#| fig-show: hide  
+
+# Convert any empty strings ("") to real NA values so they are treated as missing.
+# The dplyr package supplies tabular data‐manipulation including filtering, selecting,
+# mutating, summarizing, arranging, and joining.
+d$country_of_res <- dplyr::na_if(d$country_of_res, "")
+
+
+# table(): tabulates frequencies of each unique value; useNA = "no" excludes missing values.
+freq_loc <- table(d$country_of_res, useNA = "no")
+
+
+library(modeest)
+mode_loc <- modeest::mfv(d$country_of_res, na_rm = TRUE)
+
+# list(): combines the frequency table and the mode into a single named object for clear printing.
+# freq_loc, mode_loc: results created above.
+list(frequencies = freq_loc,
+     mode        = mode_loc)
+```
+
+## Country and Mode Results
+
+```{r}
+#| echo: false
+list(frequencies = freq_loc,
+     mode        = mode_loc)
+```
+
+##  6 - Feature and Ethnicity Code
+
+#I will use the mode imputation because for nominal (unordered) categories, one common strategy is mode imputation, filling each NA with the most frequent.
+# Ethnicity is nominal; means or medians are undefined, and randomly guessing introduces noise. Using the prevailing category minimizes information loss and avoids creating artificial minority groups
+
+
+```{r}
+#| results: hide
+#| fig-show: hide  
+
+# Convert any empty strings ("") to real NA values so they are treated as missing.
+# dplyr::na_if(): replaces "" with NA for cleaner missing-value handling.
+
+# First, replace empty strings
+d$ethnicity <- dplyr::na_if(d$ethnicity, "")
+
+# Second, replace question marks
+d$ethnicity <- dplyr::na_if(d$ethnicity, "?")
+
+
+before_sum <- sum(is.na(d$ethnicity))                       # count missing values
+before_table <- table(d$ethnicity, useNA = "ifany")         # frequency table incl. NA
+
+# ---- Impute missing ethnicity with the mode (most common category) ----
+# The modeest package supplies several functions to estimate the statistical mode
+# modeest::mfv(): returns the most frequent value(s) (mode) of a vector.
+# na_rm = TRUE discards NA values before calculation.
+library(modeest)
+ethnicity_mode <- modeest::mfv(d$ethnicity, na_rm = TRUE)  # most frequent level
+
+# The tidyr package reshapes messy data frames into “tidy” form.
+# tidyr::replace_na(): replaces NA values with a specified value.
+d$ethnicity <- tidyr::replace_na(d$ethnicity, ethnicity_mode)
+
+# Verify that imputation succeeded and inspect updated frequencies.
+sum(is.na(d$ethnicity))                          # should now be 0
+table(d$ethnicity)                               # frequency table after fill
+```
+
+## Feature and Ethnicity Results
+
+```{r}
+#| echo: false
+before_sum
+before_table
+sum(is.na(d$ethnicity))                          # count missing values
+table(d$ethnicity, useNA = "ifany")              # frequency table incl. NA
+
+
+```
+
+## 7 - Bar and Graph 
+Create a bar graph of  imputed ethnicity feature.  
+
+
+## Bar and Graph Code
+
+```{r}
+#| results: hide
+#| fig-show: hide 
+#  title.
+barplot(sort(table(d$ethnicity), decreasing = TRUE),
+        las   = 2,
+        main  = "Number  by ethnicity (after imputation)")
+```
+
+
+
+## Bar and Graph Results
+
+```{r}
+#| echo: false
+barplot(sort(table(d$ethnicity), decreasing = TRUE),
+        las   = 2,
+        main  = "Number  by ethnicity (after imputation)")
+```
+
+## 8 - Gender and Dummy Coding
+(8) Implement dummy coding for the **gender** feature. Replace the original gender feature with the coded result and report the coded gender for the last ten observations.  
+
+## Gender and Dummy Coding Code
+
+```{r}
+# Ensure gender is treated as a categorical factor before coding.
+d$gender <- as.factor(d$gender)
+
+# remove_first_dummy = TRUE: omit the first level’s dummy to prevent perfect multicollinearity.
+library(fastDummies)
+d <- fastDummies::dummy_cols(
+        d,
+        select_columns       = "gender",
+        remove_selected_columns = TRUE,
+        remove_first_dummy   = TRUE
+      )
+
+# Extract the dummy-coded columns for the last ten observations to illustrate the result.
+# grep("^ gender", names(d)) finds every new dummy column created above.
+coded_gender_last10 <- tail(d[ , grep("^gender_", names(d)) ], 10)
+coded_gender_last10
+```
+
+## 9 - Discrete and Continuous
+(9) Identify which features in your data set are discrete and which are continuous.  
+
+## Discrete and Continuous Code
+
+```{r}
+#| results: hide
+#| fig-show: hide 
+# Clean blank strings ("") so that uniqueness counts are not distorted.
+# dplyr::mutate(across()): applies a transformation across columns that meet a condition.
+library(dplyr)
+d_mutate <- mutate(d, across(where(is.character), ~ dplyr::na_if(.x, "")))
+
+# Helper function to classify a single vector.
+# Rule derived from lecture: non-numeric → discrete; 
+# numeric with ≤ 10 unique values = discrete; else continuous.
+discrete_or_continuous <- function(vec) {
+  if (!is.numeric(vec)) {
+    return("discrete")
+  }
+  uniq <- length(unique(vec[!is.na(vec)]))   # unique() ignores duplicates; !is.na() excludes NAs.
+  if (uniq <= 10) "discrete" else "continuous"
+}
+
+# sapply(): applies the helper to every column; returns a named character vector of classifications.
+feature_type <- sapply(d_mutate, discrete_or_continuous)
+
+# Separate names by class for easy reading.
+discrete_feats   <- names(feature_type[feature_type == "discrete"])
+continuous_feats <- names(feature_type[feature_type == "continuous"])
+
+# Present the results as a list so they print cleanly in the console.
+list(discrete   = discrete_feats,
+     continuous = continuous_feats)
+
+```
+
+
+
+## Discrete and Continuous Results
+
+```{r}
+#| echo: false
+list(discrete   = discrete_feats,
+     continuous = continuous_feats)
+```
+
+
+## 10 - Numeric and Features 
+## Numeric and Features Code
+
+```{r}
+#| results: hide
+#| fig-show: hide 
+# Convert blank strings ("") in character columns to real NA so counts & classes are accurate.
+# dplyr::mutate(across()): applies a function across every character column that meets the condition.
+library(dplyr)
+d_mutate <- mutate(d, across(where(is.character), ~ dplyr::na_if(.x, "")))
+
+# Determine the base R class of each column.
+# sapply(): iterates over the data frame’s columns; class() returns each column’s type label.
+col_classes <- sapply(d_mutate, class)
+
+# A column is numeric if its class is "numeric" or "integer"; otherwise treat it as non‑numeric.
+numeric_flags <- col_classes %in% c("numeric", "integer")
+
+# Separate the feature names by class.
+numeric_feats     <- names(col_classes[numeric_flags])
+nonnumeric_feats  <- names(col_classes[!numeric_flags])
+
+# Present the results as a list so they print cleanly in the console.
+list(numeric     = numeric_feats,
+     non_numeric = nonnumeric_feats)
+```
+
+## Numeric and Features Results
+
+#The numeric/non-numeric and discrete/continuous classifications largely overlap, but they are not the same. All non-numeric features are discrete because they represent categories. Among numeric features, some are discrete, such as the A*_Score variables and gender_m, which take on limited, fixed values despite being stored as numbers. In contrast, age is both numeric and continuous since it can vary across a wide range. Overall, all continuous features are numeric, but not all numeric features are continuous, highlighting the importance of considering both classifications when analyzing data
+
+```{r}
+#| echo: false
+list(numeric     = numeric_feats,
+     non_numeric = nonnumeric_feats)
+```
+
+## 11 -  Check the  Data
+## Check and Data Code
+
+```{r}
+#| results: hide
+#| fig-show: hide 
+# head(): shows the first rows
+show_data <- head(d, n = 4)
+show_data
+```
+
+show_data
+## Check and Data Results
+
+```{r}
+#| echo: false
+head(d, n = 4)
+```
+
+## Proplem 2 
+ 
+1 - Create a scatterplot of feature **A1** vs. **A5**
+
+## Scatterplot Code
+
+```{r}
+#| results: hide
+#| fig-show: hide 
+d <- read.csv("correlation.csv")
+
+# Remove rows that contain missing values in either feature before plotting.
+# tidyr::drop_na(): drops rows with NA in the selected columns.
+d_clean <- tidyr::drop_na(d, A1, A5)
+
+# Ensure both features are numeric so the scatterplot has meaningful axes.
+# suppressWarnings(): hides coercion warnings; as.numeric(): converts to numeric.
+d_clean$A1 <- suppressWarnings(as.numeric(d_clean$A1))
+d_clean$A5 <- suppressWarnings(as.numeric(d_clean$A5))
+
+library(ggplot2)
+ggplot(d_clean, aes(x = A1, y = A5)) +
+  geom_point(color = "red") +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.8) +
+  labs(title = "A1 vs. A5 Scatterplot",
+       x = "Feature A1",
+       y = "Feature A5") +
+  theme_minimal()
+```
+
+## Scatterplot Results
+
+```{r}
+#| echo: false
+ggplot(d_clean, aes(x = A1, y = A5)) +
+  geom_point(color = "red") +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.8) +
+  labs(title = "A1 vs. A5 Scatterplot",
+       x = "Feature A1",
+       y = "Feature A5") +
+  theme_minimal()
+```
+
+##  2 - Correlation matrix Feature and Correlation
+Compute the correlation matrix for all five features in the data set
+
+- **Correlation matrix** – a 5 × 5 symmetric table whose (i,j) entry is the correlation coefficient between feature *i* and feature *j*.  
+- **Pearson’s *r*** – default measure in the lecture; standardizes each feature, then takes the mean product of Z-scores; values range from –1 (perfect negative) to +1 (perfect positive).  
+- **Diagonal of 1.0** – each feature is perfectly correlated with itself, so the main diagonal is 1’s by definition.  
+
+## Feature and Correlation Code
+
+```{r}
+#| results: hide
+#| fig-show: hide 
+d <- read.csv("correlation.csv")
+
+# Create a vector of column names to clean.
+cols <- paste0("A", 1:5)
+
+# Ensure every feature is numeric for a valid Pearson correlation.
+# suppressWarnings(): hides coercion warnings; as.numeric(): converts to numeric.
+for (v in cols) d[[v]] <- suppressWarnings(as.numeric(d[[v]]))
+
+cor_mat <- cor(d[cols], use = "pairwise.complete.obs", method = "pearson")
+
+# Print the correlation matrix so we  can see the result.
+cor_mat
+```
+
+## Feature and Correlation Results
+
+```{r}
+#| echo: false
+cor_mat
+```
+
+##  3 - Identify the strongest correlation 
+
+## Correlation and Relationship Code - Part 1
+```{r}
+#| results: hide
+#| fig-show: hide 
+d <- read.csv("correlation.csv")
+
+# Create a vector of column names to clean.
+cols <- paste0("A", 1:5)
+
+# Ensure every feature is numeric for a valid Pearson correlation.
+# suppressWarnings(): hides coercion warnings; as.numeric(): converts to numeric.
+for (v in cols) d[[v]] <- suppressWarnings(as.numeric(d[[v]]))
+
+
+cor_mat <- cor(d[cols], use = "pairwise.complete.obs", method = "pearson")
+```
+
+## Correlation and Relationship Code - Part 2
+```{r}
+#| results: hide
+#| fig-show: hide 
+lapply(c("tidyr", "tibble"), library, character.only = TRUE)
+cor_df <- cor_mat %>%                # start with the matrix
+  as.data.frame() %>%                # 1. make it a data frame so tidy verbs work
+  rownames_to_column("Feature1") %>% # 2. preserve row names as a real column
+  pivot_longer(                      # 3. pivot from wide to long:
+      -Feature1,                     #    everything *except* Feature1 …
+      names_to  = "Feature2",        #    … becomes Feature2
+      values_to = "r") %>%           #    correlations go into column r
+  filter(Feature1 < Feature2) %>%    # 4. keep only upper-triangle rows:
+                                     #    same pair once, drop the 1.0 diagonal
+  mutate(abs_r = abs(r)) %>%         # 5. add |r| so we rank by strength
+  arrange(desc(abs_r))               # 6. strongest correlation first
+
+# Extract the top row: the feature pair with the largest |r|.
+strongest <- cor_df[1, ]
+
+# Report the pair, the correlation coefficient, and its sign.
+list(
+  feature_pair   = paste(strongest$Feature1, strongest$Feature2, sep = " – "),
+  correlation_r  = strongest$r,
+  correlation_is = ifelse(strongest$r > 0, "positive", "negative")
+)
+
+```
+
+## Correlation and Relationship Results
+- Correlation between A2 - A3 is positive and there is a moderate relationship.
+
+```{r}
+#| echo: false
+list(
+  feature_pair   = paste(strongest$Feature1, strongest$Feature2, sep = " – "),
+  correlation_r  = strongest$r,
+  correlation_is = ifelse(strongest$r > 0, "positive", "negative")
+)
+```
+
+## 4-  Z-Score Normalization
+Implement z-score normalization on all features in the data set
+
+## Z-Score Normalization Code
+```{r}
+d <- read.csv("correlation.csv")
+# DEFINE the columns we want to normalize
+cols <- c("A1", "A2", "A3", "A4", "A5")
+# Apply z-score normalization column-wise.
+
+d[cols] <- as.data.frame(scale(d[cols], center = TRUE, scale = TRUE))
+
+# Optional: inspect the first few rows to confirm transformation.
+inspect_data <- head(d[cols])
+
+```
+
+inspect_data
+
+##  5 - Correlation Matrix  after normlization
+
+- Apply the same Pearson procedure to the z-score–transformed data, yielding a new 5 × 5 table.
+- Compare the results.
+
+## Correlation Matrix Code
+```{r}
+#| results: hide
+#| fig-show: hide 
+
+# Create a vector of column names to clean.
+cols <- paste0("A", 1:5)
+
+# Compute the Pearson correlation matrix, handling missing values pairwise.
+# observations for each pair; method = "pearson" is the default linear correlation.
+cor_mat_norm <- cor(d[cols], use = "pairwise.complete.obs", method = "pearson")
+
+library(cli)
+cli::cat_rule("Correlation matrix (raw features)")
+print(cor_mat)
+
+cli::cat_rule("Correlation matrix (normalized features)")
+print(cor_mat_norm)
+```
+
+## Correlation Matrix Results
+It is he same numbers after z score normlization because they were normalized, and the same method was applied, we will get  the same result in the end.
+
+```{r}
+#| echo: false
+cli::cat_rule("Correlation matrix (raw features)")
+print(cor_mat)
+
+cli::cat_rule("Correlation matrix (normalized features)")
+print(cor_mat_norm)
+
+```
+
