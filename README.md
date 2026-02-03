@@ -1,4 +1,4 @@
 # Data-Mining-Machine-learning-CS699-
-Features engineering, features selection, features reductions, correlation matrix analysis, classification and numeric prediction algorithms
+Features engineering, features selection, features reductions, correlation matrix analysis, distance measures, classification and numeric prediction algorithms
 
 
