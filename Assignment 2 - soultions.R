@@ -2,7 +2,7 @@
 
 
 #Problem 1 
-#| results: hold
+#| results:: hold
 
 # 1. Load the observation data
 # We represent the categorical features for people P4, P5, and P9
@@ -31,7 +31,7 @@ hamming_dist <- function(id_a, id_b, df, cols) {
   return(mean(row_a != row_b))
 }
 
-# 4. Calculate distances from P4 to P5 and P4 to P9
+## 4. Calculate distances from P4 to P5 and P4 to P9
 dist_P4_P5 <- hamming_dist("P4", "P5", people, nom_cols)
 dist_P4_P9 <- hamming_dist("P4", "P9", people, nom_cols)
 
